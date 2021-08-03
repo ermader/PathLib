@@ -9,6 +9,8 @@ Created on July 7, 2020
 import math, random
 from colorsys import hls_to_rgb
 from FontDocTools.Color import Color
+from .Transform import Transform
+
 from .BezierUtilities import lli
 
 class PUColor(Color):
@@ -216,7 +218,7 @@ class PUColor(Color):
         red, green, blue = hls_to_rgb(hue / 360, lightness / 100, saturation / 100)
         return PUColor(round(red * 255), round(green * 255), round(blue * 255))
 
-class PUBoundsRectangle(object):
+class BoundsRectangle(object):
     """\
     A bounds rectangle for a set of points.
     """
@@ -253,9 +255,9 @@ class PUBoundsRectangle(object):
         """\
         Return a BoundsRectangle that encloses the points in contour.
         """
-        bounds = PUBoundsRectangle()
+        bounds = BoundsRectangle()
         for segment in contour:
-            bounds = bounds.union(PUBoundsRectangle(*segment))
+            bounds = bounds.union(BoundsRectangle(*segment))
 
         return bounds
 
@@ -264,9 +266,9 @@ class PUBoundsRectangle(object):
         """\
         Return a BoundsRectangle that encloses the points in contours.
         """
-        bounds = PUBoundsRectangle()
+        bounds = BoundsRectangle()
         for contour in contours:
-            bounds = bounds.union(PUBoundsRectangle.fromContour(contour))
+            bounds = bounds.union(BoundsRectangle.fromContour(contour))
 
         return bounds
 
@@ -371,7 +373,7 @@ class PUBoundsRectangle(object):
         newRight = max(self.right, other.right)
         newBottom = min(self.bottom, other.bottom)
 
-        return PUBoundsRectangle((newLeft, newBottom), (newRight, newTop))
+        return BoundsRectangle((newLeft, newBottom), (newRight, newTop))
 
     def intersection(self, other):
         """\
@@ -383,7 +385,7 @@ class PUBoundsRectangle(object):
         newBottom = max(self.bottom, other.bottom)
 
         if newRight < newLeft or newTop < newBottom: return None  # maybe want <=, >=?
-        return PUBoundsRectangle((newLeft, newBottom), (newRight, newTop))
+        return BoundsRectangle((newLeft, newBottom), (newRight, newTop))
 
     def relationTo(self, other):
         if self.encloses(other):
@@ -486,8 +488,8 @@ def intersectionPoint(l1, l2):
     """
     intersection = lli(l1, l2)
 
-    b1 = PUBoundsRectangle(*l1)
-    b2 = PUBoundsRectangle(*l2)
+    b1 = BoundsRectangle(*l1)
+    b2 = BoundsRectangle(*l2)
 
     # The point calculated above assumes that the two lines have
     # infinite length, so it may not be on both, or either line.
@@ -506,332 +508,20 @@ def pointOnLine(point, line):
     """\
     Test if a given point is on the given line.
     """
-    bounds = PUBoundsRectangle(*line)
+    bounds = BoundsRectangle(*line)
 
     # If the bounds rectangle of the line encloses the point and
     # a line from the start of the given line to the point has the
     # same slope as the line, it is on the line.
     return bounds.enclosesPoint(point) and slope(line) == slope([line[0], point])
 
-class PUTransform(object):
-    """\
-    A 3x3 transform.
-    """
-    @staticmethod
-    def multiplyRowByMatrix(row, matrix):
-        """\
-        Multiply the given row by the given matrix. Returns a new row.
-        """
-        r1, r2, r3 = row
-        m1, m2, m3 = matrix
-        m11, m12, m13 = m1
-        m21, m22, m23 = m2
-        m31, m32, m33 = m3
-
-        return [r1 * m11 + r2 * m21 + r3 * m31, r1 * m12 + r2 * m22 + r3 * m32, r1 * m13 + r2 * m23 + r3 * m33]
-
-    @staticmethod
-    def multiplyMatrixByMatrix(m1, m2):
-        """\
-        Multiply the two matricies.
-        """
-        result = []
-        for row in m1:
-            result.append(PUTransform.multiplyRowByMatrix(row, m2))
-
-        return result
-
-    @staticmethod
-    def concatenateMatrices(*matrices):
-        """\
-        Multiply the given matrices together.
-        """
-        concatenation = matrices[0]
-        for matrix in matrices[1:]:
-            concatenation = PUTransform.multiplyMatrixByMatrix(concatenation, matrix)
-
-        return concatenation
-
-    @staticmethod
-    def sin(degrees):
-        """\
-        Return the sin of the angle.
-        """
-        # We use round() because sin values that should be zero
-        # are actually around 1e-16
-        return round(math.sin(math.radians(degrees)), 15)
-
-    @staticmethod
-    def cos(degrees):
-        """\
-        Return the cos of the angle.
-        """
-        # We use round() because cos values that should be zero
-        # are actually around 1e-16
-        return round(math.cos(math.radians(degrees)), 15)
-
-    def __init__(self, *matrices):
-        """\
-        Construct a PUTransform by concateniing the given matrices.
-        """
-        self._transform = PUTransform.concatenateMatrices(*matrices)
-
-    @staticmethod
-    def _matrix(a=1.0, b=0.0, c=0.0, d=1.0, m=0.0, n=0.0, p=0.0, q=0.0, s=1.0):
-        """\
-        Construct a 3x3 matrix from the given values.
-        """
-        return [
-            [a, b, p],
-            [c, d, q],
-            [m, n, s]]
-
-    @staticmethod
-    def _identityMatrix():
-        """\
-        Construct the identity matrix. This is the default for _matrix().
-        """
-        return PUTransform._matrix()
-
-    @staticmethod
-    def _scaleMatrix(sx=1, sy=1):
-        """\
-        Construct a matrix that scales in the x, y directions by the given factor.
-        """
-        return PUTransform._matrix(a=sx, d=sy)
-
-    @staticmethod
-    def _translateMatrix(fromPoint, toPoint):
-        """\
-        Construct a matrix that translates from fromPoint to toPoint.
-        """
-        fpx, fpy = fromPoint
-        tpx, tpy = toPoint
-        tx = tpx - fpx
-        ty = tpy - fpy
-
-        return PUTransform._matrix(m=tx, n=ty)
-
-    @staticmethod
-    def _shearMatrix(sx=0, sy=0):
-        """\
-        Construct a matrix that shears in the x, y directions by the given amounts
-        """
-        return PUTransform._matrix(b=sy, c=sx)
-
-    @staticmethod
-    def _mirrorMatrix(xAxis=False, yAxis=False):
-        """\
-        Construct a matrix that mirrors around the x and or y axes.
-        """
-        a = -1 if yAxis else 1
-        d = -1 if xAxis else 1
-        return PUTransform._matrix(a=a, d=d)
-
-    @staticmethod
-    def _rotationMatrix(degrees, ccw=True):
-        """\
-        Construct a matrix that rotates by the specified number of degrees
-        in a clockwise or counter-clockwise direction.
-        """
-        st = PUTransform.sin(degrees)  # sin(theta)
-        ct = PUTransform.cos(degrees)  # cos(theta)
-
-        return PUTransform._matrix(a=ct, b=st, c=-st, d=ct) if ccw else PUTransform._matrix(a=ct, b=-st, c=st, d=ct)
-
-    @staticmethod
-    def _perspectiveMatrix(p, q, s=1):
-        """\
-        Construct a matrix that does a perspective transformation.
-        """
-        return PUTransform._matrix(p=p, q=q, s=s)
-
-    @property
-    def transform(self):
-        """\
-        Return the transform's matrix.
-        """
-        return self._transform
-
-    @classmethod
-    def translate(cls, fromPoint, toPoint):
-        """\
-        Construct a PUTransform object that translates from fromPoint to toPoint.
-        """
-        m = PUTransform._translateMatrix(fromPoint, toPoint)
-        return PUTransform(m)
-
-    @classmethod
-    def scale(cls,sx=1, sy=1):
-        """\
-        Construct a PUTransform object that scales in the x, y directions by the given factor.
-        """
-        m = PUTransform._scaleMatrix(sx, sy)
-        return PUTransform(m)
-
-    @classmethod
-    def shear(cls, sx=0, sy=0):
-        """\
-        Construct a PUTransform object that shears in the x, y directions by the given amounts
-        """
-        m = PUTransform._shearMatrix(sx, sy)
-        return PUTransform(m)
-
-    @classmethod
-    def mirror(cls, xAxis=False, yAxis=False):
-        """\
-        Construct a PUTransform object that mirrors around the x and or y axes.
-        """
-        m = PUTransform._mirrorMatrix(xAxis, yAxis)
-        return PUTransform(m)
-
-    @classmethod
-    def rotation(cls, degrees=90, ccw=True):
-        """\
-        Construct a PUTransform object that rotates by the specified number of degrees
-        in a clockwise or counter-clockwise direction.
-        """
-        m = PUTransform._rotationMatrix(degrees, ccw)
-        return PUTransform(m)
-
-    @classmethod
-    def perspective(cls, p=0, q=0, s=1):
-        """\
-        Construct a PUTransform object that does a perspective transformation.
-        """
-        m = PUTransform._perspectiveMatrix(p, q, s)
-        return PUTransform(m)
-
-    @classmethod
-    def moveAndRotate(cls, fromPoint, toPoint, degrees):
-        m1 = PUTransform._translateMatrix(fromPoint, toPoint)
-        m2 = PUTransform._rotationMatrix(degrees)
-        return PUTransform(m1, m2)
-
-    @classmethod
-    def rotateAndMove(cls, fromPoint, toPoint, degrees):
-        m1 = PUTransform._rotationMatrix(degrees)
-        m2 = PUTransform._translateMatrix(fromPoint, toPoint)
-        return PUTransform(m1, m2)
-
-    @classmethod
-    def rotationAbout(cls, about, degrees=90, ccw=True):
-        """\
-        Construct a PUTransform object that rotates around the point about by the specified number of degrees
-        in a clockwise or counter-clockwise direction.
-        """
-        origin = (0, 0)
-        # Translate about point to origin
-        m1 = PUTransform._translateMatrix(about, origin)
-
-        # rotate
-        m2 = PUTransform._rotationMatrix(degrees, ccw)
-
-        # translate back to about point
-        m3 = PUTransform._translateMatrix(origin, about)
-
-        return PUTransform(m1, m2, m3)
-
-    @classmethod
-    def mirrorAround(cls, centerPoint, xAxis=False, yAxis=False):
-        """\
-        Construct a PUTransform object that mirrors around the given center point
-        in the x and or y directions.
-        """
-        tx = ty = 0
-        cx, cy = centerPoint
-
-        if xAxis:
-            ty = cy
-
-        if yAxis:
-            tx = cx
-
-        mirrorPoint = (cx - tx, cy - ty)
-        m1 = PUTransform._translateMatrix(centerPoint, mirrorPoint)
-        m2 = PUTransform._mirrorMatrix(xAxis, yAxis)
-        m3 = PUTransform._translateMatrix(mirrorPoint, centerPoint)
-
-        return PUTransform(m1, m2, m3)
-
-    @classmethod
-    def perspectiveFrom(cls, centerPoint, p=0, q=0):
-        """\
-        Construct a PUTransform object that does a perspective transformation
-        around the given center point.
-        """
-        origin = (0, 0)
-
-        # translate centerPoint to the origin
-        m1 = PUTransform._translateMatrix(centerPoint, origin)
-
-        # the perspective transformation
-        m2 = PUTransform._perspectiveMatrix(p, q)
-
-        # translate back to centerPoint
-        m3 = PUTransform._translateMatrix(origin, centerPoint)
-
-        return PUTransform(m1, m2, m3)
-
-    def applyToPoint(self, point):
-        """\
-        Apply the transformation to the given point.
-        """
-
-        complexPoint = isinstance(point, complex)
-
-        if complexPoint:
-            px = point.real
-            py = point.imag
-        else:
-            px, py = point
-        rp = PUTransform.multiplyRowByMatrix([px, py, 1], self.transform)
-
-        # in the general case, rp[2] may not be 1, so
-        # normalize to 1.
-        rx = rp[0]/rp[2]
-        ry = rp[1]/rp[2]
-
-        return complex(rx, ry) if complexPoint else (rx, ry)
-
-    def applyToSegment(self, segment):
-        """\
-        Apply the transform to all points in the given segment.
-        """
-        transformed = []
-        for point in segment:
-            transformed.append(self.applyToPoint(point))
-
-        return transformed
-
-
-    def applyToContour(self, contour):
-        """\
-        Apply the transform to all segments in the given contour.
-        """
-        transformed = []
-        for segment in contour:
-            transformed.append(self.applyToSegment(segment))
-
-        return transformed
-
-
-    def applyToContours(self, contours):
-        """\
-        Apply the transform to each contour in contours.
-        """
-        transformed = []
-        for contour in contours:
-            transformed.append(self.applyToContour(contour))
-
-        return transformed
 
 def rotatePointAbout(point, about, degrees=90, ccw=True):
     """\
     Rotate the given point the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
     """
-    rt = PUTransform.rotationAbout(about, degrees, ccw)
+    rt = Transform.rotationAbout(about, degrees, ccw)
 
     return rt.applyToPoint(point)
 
@@ -840,7 +530,7 @@ def rotateSegmentAbout(segment, about, degrees=90, ccw=True):
     Rotate the given segment the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
     """
-    rt = PUTransform.rotationAbout(about, degrees, ccw)
+    rt = Transform.rotationAbout(about, degrees, ccw)
 
     return rt.applyToSegment(segment)
 
@@ -849,7 +539,7 @@ def rotateContourAbout(contour, about, degrees=90, ccw=True):
     Rotate the given contour the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
     """
-    rt = PUTransform.rotationAbout(about, degrees, ccw)
+    rt = Transform.rotationAbout(about, degrees, ccw)
 
     return rt.applyToContour(contour)
 
@@ -858,7 +548,7 @@ def rotateContoursAbout(contours, about, degrees=90, ccw=True):
     Rotate the given contours the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
     """
-    rt = PUTransform.rotationAbout(about, degrees, ccw)
+    rt = Transform.rotationAbout(about, degrees, ccw)
 
     return rt.applyToContours(contours)
 
@@ -905,7 +595,7 @@ def test():
     m2 = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
     m3 = [[1, 0, 0], [0, 1, 0], [4, 3, 1]]
 
-    fp = PUTransform(m1, m2, m3)
+    fp = Transform(m1, m2, m3)
     print(f"rotation transform = {fp.transform}")
     print(f"rotation of (8, 6) = {fp.applyToPoint((8, 6))}")
 

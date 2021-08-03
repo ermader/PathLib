@@ -12,8 +12,10 @@ from https://github.com/Pomax/BezierInfo-2
 import math
 import types
 from decimal import Decimal, getcontext
+
 from . import BezierUtilities as butils
 from . import PathUtilities
+from .Transform import Transform
 
 MAX_SAFE_INTEGER = +9007199254740991  # Number.MAX_SAFE_INTEGER
 MIN_SAFE_INTEGER = -9007199254740991  # Number.MIN_SAFE_INTEGER
@@ -244,7 +246,7 @@ class Bezier(object):
         aligned = self.align()
         tBounds = aligned.boundsRectangle
         angle = PathUtilities.rawSlopeAngle(self.controlPoints)
-        translate = PathUtilities.PUTransform.rotateAndMove((0, 0), self.controlPoints[0], angle)
+        translate = Transform.rotateAndMove((0, 0), self.controlPoints[0], angle)
         tbContour = translate.applyToContour(tBounds.contour)
         return tbContour
 
@@ -254,13 +256,13 @@ class Bezier(object):
             bbox = self.bbox
             minX, maxX = bbox[0]
             minY, maxY = bbox[1]
-            self._boundsRectangle = PathUtilities.PUBoundsRectangle((minX, minY), (maxX, maxY))
+            self._boundsRectangle = PathUtilities.BoundsRectangle((minX, minY), (maxX, maxY))
 
         return self._boundsRectangle
 
     @property
     def skeletonBounds(self):
-        sbounds = PathUtilities.PUBoundsRectangle.fromContour([self.controlPoints])
+        sbounds = PathUtilities.BoundsRectangle.fromContour([self.controlPoints])
         sbounds.right += 40
         return sbounds
 
@@ -270,7 +272,7 @@ class Bezier(object):
     @staticmethod
     def _align(points, segment):
         angle = PathUtilities.rawSlopeAngle(segment)
-        transform = PathUtilities.PUTransform.moveAndRotate(segment[0], (0, 0), -angle)
+        transform = Transform.moveAndRotate(segment[0], (0, 0), -angle)
         return transform.applyToSegment(points)
 
     @property
@@ -762,7 +764,7 @@ class Bezier(object):
 class BContour(object):
     def __init__(self, contour):
         beziers = []
-        bounds = PathUtilities.PUBoundsRectangle()
+        bounds = PathUtilities.BoundsRectangle()
 
         for segment in contour:
             bezier = Bezier(segment)
@@ -971,7 +973,7 @@ class BOutline(object):
     __slots__ = "_bContours", "_bounds"
 
     def __init__(self, contours):
-        bounds = PathUtilities.PUBoundsRectangle()
+        bounds = PathUtilities.BoundsRectangle()
         bContours = []
 
         for contour in contours:
