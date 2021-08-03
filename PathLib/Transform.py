@@ -1,3 +1,11 @@
+"""\
+Transform.py
+
+Extracted from PathUtilities.py on August 3, 2021
+
+@author Eric Mader
+"""
+
 import math
 
 
