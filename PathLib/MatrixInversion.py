@@ -94,18 +94,3 @@ def matrixInvert(M):
     # we've done all operations, C should be the identity
     # matrix I should be the inverse
     return I
-
-def test():
-    from CurveFitting import multiply
-
-    # test case from http://blog.acipo.com/matrix-inversion-in-javascript/
-    M = [[1, 3, 3], [1, 4, 3], [1, 3, 4]]
-    MI = matrixInvert(M)
-    print(MI)  # print inverse
-
-    # verify that the product of the original matrix and the
-    # original matrix is the identity matrix
-    print(multiply(M, MI))
-
-if __name__ == "__main__":
-    test()
