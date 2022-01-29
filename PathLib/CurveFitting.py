@@ -9,7 +9,11 @@ from https://github.com/Pomax/BezierInfo-2
 @author Eric Mader
 """
 
+import typing
+
 import math
+from .PathTypes import Point
+from .Transform import Matrix, Row
 from .MatrixInversion import matrixInvert
 
 binomialCoefficients = [
@@ -21,7 +25,7 @@ binomialCoefficients = [
      [1, 5, 10, 10, 5, 1],     # n = 5
     [1, 6, 15, 20, 15, 6, 1]]  # n = 6
 
-def dist(p1, p2):
+def dist(p1: Point, p2: Point):
     p1x, p1y = p1
     p2x, p2y = p2
     dx = p1x - p2x
@@ -29,7 +33,7 @@ def dist(p1, p2):
 
     return math.hypot(dx, dy)
 
-def binomial(n, k):
+def binomial(n: int, k: int):
     if n == 0: return 1
     lut = binomialCoefficients
     while n >= len(lut):
@@ -41,14 +45,14 @@ def binomial(n, k):
         lut.append(nextRow)
     return lut[n][k]
 
-def getPointValuesColumn(points, v):
+def getPointValuesColumn(points: list[Point], v: int):
     return [[p[v]] for p in points]
 
-def computeTimeValues(p, n=None, polygonal=True):
+def computeTimeValues(p: list[Point], n: typing.Optional[int] = None, polygonal: bool = True) -> list[float]:
     if not n: n = len(p)
 
     if polygonal:
-        d = [0]
+        d: list[float] = [0]
         for i in range(1, n):
             d.append(d[i-1] + dist(p[i-1], p[i]))
 
@@ -58,10 +62,10 @@ def computeTimeValues(p, n=None, polygonal=True):
         return [i / (n-1) for i in range(n)]
 
 
-def raiseRowPower(row, i):
+def raiseRowPower(row: Row, i: int) -> Row:
     return [math.pow(v, i) for v in row]
 
-def basisMatrix(n):
+def basisMatrix(n: int) -> Matrix:
     """\
     Return the (n x n) basis matrix
     We can form any basis matrix using a generative approach:
@@ -84,7 +88,7 @@ def basisMatrix(n):
     also determined by matrix position. This is actually very easy to
     write out in code:
 """
-    m = [[0 for c in range(n)] for r in range(n)]
+    m: Matrix = [[0 for _ in range(n)] for _ in range(n)]
     k = n - 1
 
     # populate the main diagonal
@@ -100,18 +104,19 @@ def basisMatrix(n):
 
     return m
 
-def transpose(m):
-    t = []
+def transpose(m: Matrix) -> Matrix:
+    t: Matrix = []
     for column in range(len(m[0])):
-        tc = []
+        tc: Row = []
         for row in range(len(m)):
             tc.append(m[row][column])
         t.append(tc)
+
     return t
 
-def formTMatrix(s, n=None):
+def formTMatrix(s: Row, n: typing.Optional[int] = None) -> tuple[Matrix, Matrix]:
     if not n: n = len(s)
-    tp = []
+    tp: Matrix = []
 
     # it's easier to generate the transposed matrix:
     for i in range(n):
@@ -119,10 +124,10 @@ def formTMatrix(s, n=None):
 
     return (tp, transpose(tp))
 
-def row(m, i):
+def row(m: Matrix, i: int) -> Row:
     return m[i]
 
-def col(m, i):
+def col(m: Matrix, i: int):
     return [r[i] for r in m]
 
 # JavaScript code:
@@ -142,11 +147,11 @@ def col(m, i):
 #   }
 #   return M;
 # }
-def multiply(M1, M2):
-    M = []
+def multiply(M1: Matrix, M2: Matrix) -> Matrix:
+    M : Matrix= []
     for r in range(len(M1)):
-        mr = []
-        _row = row(M1, r)
+        mr: Row = []
+        _row: Row = row(M1, r)
         for c in range(len(M2[0])):
             _col = col(M2, c)
             # Python reduce callback doesn't include the index
@@ -160,12 +165,12 @@ def multiply(M1, M2):
 
     return M
 
-def bestFit(P, M, S, n=None):
+def bestFit(P: list[Point], M: Matrix, S: list[float], n: typing.Optional[int] = None) -> tuple[Matrix, Matrix]:
     if not n: n = len(P)
 
     Tt, T = formTMatrix(S, n)
-    M1 = matrixInvert(M)
-    TtT1 = matrixInvert(multiply(Tt, T))
+    M1 = typing.cast(Matrix, matrixInvert(M))
+    TtT1 = typing.cast(Matrix, matrixInvert(multiply(Tt, T)))
     step1 = multiply(TtT1, Tt)
     step2 = multiply(M1, step1)
     X = getPointValuesColumn(P, 0)
@@ -175,7 +180,7 @@ def bestFit(P, M, S, n=None):
 
     return (Cx, Cy)
 
-def fit(points, polygonal=True):
+def fit(points: list[Point], polygonal: bool = True):
     n = len(points)
     m = basisMatrix(n)
     s = computeTimeValues(points, polygonal=polygonal)
@@ -184,13 +189,13 @@ def fit(points, polygonal=True):
     return (points, m, s, c)
 
 def test():
-    m = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]]
-    pr = [[100, 200, 1]]
-    pc = [[100], [200], [1]]
+    m: Matrix = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]]
+    pr: Matrix = [[100, 200, 1]]
+    pc: Matrix = [[100], [200], [1]]
     print(multiply(m, pc))
     print(multiply(pr, m))
 
-    m = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
+    m: Matrix = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
     print(transpose(m))
 
     # points = [(70, 120), (80, 160), (110, 170), (120, 120)]
