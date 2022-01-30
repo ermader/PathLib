@@ -8,7 +8,11 @@ Translated from http://blog.acipo.com/matrix-inversion-in-javascript/
 @author Eric Mader
 """
 
-def matrixInvert(M):
+import typing
+
+from .Transform import Matrix, Row
+
+def matrixInvert(M: Matrix) -> typing.Optional[Matrix]:
     """\
     Returns the inverse of matrix `M`.
 
@@ -27,12 +31,12 @@ def matrixInvert(M):
 
     # create the identity matrix (I), and a copy (C) of the original
     n = len(M)
-    I = []
-    C = []
+    I: list[Row] = []
+    C: list[Row] = []
 
     for row in range(n):
-        iRow = []
-        cRow = []
+        iRow: Row = []
+        cRow: Row = []
 
         for col in range(n):
             iRow.append(1 if row == col else 0)  # 1 if on diagonal, else 0

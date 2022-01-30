@@ -6,6 +6,9 @@ Created on October 14, 2020
 @author Eric Mader
 """
 
+import logging
+from typing import Any
+from .PathTypes import Point, Contour
 from .Transform import Transform
 
 class SegmentPen:
@@ -18,24 +21,25 @@ class SegmentPen:
     # Just knowing that glyphSet is a dictionary
     # doesn't seem that bad, though.
     #
-    def __init__(self, glyphSet, logger):
-        self._contours = []
+    def __init__(self, glyphSet: Any, logger: logging.Logger):
+        self._contours: list[Contour] = []
         self._glyphSet = glyphSet
         self.logger = logger
+        self._lastOnCurve: Point = (0, 0)
 
-    def addPoint(self, pt, segmentType, smooth, name):
+    def addPoint(self, pt: Point, segmentType: int, smooth: bool, name: str) -> None:
         raise NotImplementedError
 
-    def moveTo(self, pt):
+    def moveTo(self, pt: Point):
         self._lastOnCurve = pt
 
         # This is for glyphs, which are always closed paths,
         # so we assume that the move is the start of a new contour
-        self._contour = []
-        self._segment = []
+        self._contour: list[list[Point]] = []
+        self._segment: list[Point] = []
         self.logger.debug(f"moveTo({pt})")
 
-    def lineTo(self, pt):
+    def lineTo(self, pt: Point):
         # an old bug in fontTools.ttLib.tables._g_l_y_f.Glyph.draw()
         # can cause this to be called w/ a zero-length line.
         if pt != self._lastOnCurve:
@@ -44,14 +48,14 @@ class SegmentPen:
             self.logger.debug(f"lineTo({pt})")
             self._lastOnCurve = pt
 
-    def curveTo(self, *points):
+    def curveTo(self, *points: Point):
         segment = [self._lastOnCurve]
         segment.extend(points)
         self._contour.append(segment)
         self.logger.debug(f"CurveTo({points})")
         self._lastOnCurve = points[-1]
 
-    def qCurveTo(self, *points):
+    def qCurveTo(self, *points: Point):
         segment = [self._lastOnCurve]
         segment.extend(points)
 
@@ -70,7 +74,7 @@ class SegmentPen:
         self.logger.debug(f"qCurveTo({points})")
         self._lastOnCurve = segment[-1]
 
-    def beginPath(self):
+    def beginPath(self) -> None:
         raise NotImplementedError
 
     def closePath(self):
@@ -81,12 +85,12 @@ class SegmentPen:
             self._contour = []
         self.logger.debug("closePath()")
 
-    def endPath(self):
+    def endPath(self) -> None:
         raise NotImplementedError
 
     identityTransformation = (1, 0, 0, 1, 0, 0)
 
-    def addComponent(self, glyphName, transformation):
+    def addComponent(self, glyphName: str, transformation: tuple[float, float, float, float, float, float]):
         self.logger.debug(f"addComponent(\"{glyphName}\", {transformation}")
         if transformation != self.identityTransformation:
             xScale, xyScale, yxScale, yScale, xOffset, yOffset = transformation

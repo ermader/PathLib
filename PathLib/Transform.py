@@ -7,14 +7,17 @@ Extracted from PathUtilities.py on August 3, 2021
 """
 
 import math
+from .PathTypes import Point, Segment, Contour
 
+Row = list[float]
+Matrix = list[Row]
 
 class Transform(object):
     """\
     A 3x3 transform.
     """
     @staticmethod
-    def multiplyRowByMatrix(row, matrix):
+    def multiplyRowByMatrix(row: Row, matrix: Matrix) -> Row:
         """\
         Multiply the given row by the given matrix. Returns a new row.
         """
@@ -27,18 +30,18 @@ class Transform(object):
         return [r1 * m11 + r2 * m21 + r3 * m31, r1 * m12 + r2 * m22 + r3 * m32, r1 * m13 + r2 * m23 + r3 * m33]
 
     @staticmethod
-    def multiplyMatrixByMatrix(m1, m2):
+    def multiplyMatrixByMatrix(m1: Matrix, m2: Matrix) -> Matrix:
         """\
         Multiply the two matricies.
         """
-        result = []
+        result: Matrix = []
         for row in m1:
             result.append(Transform.multiplyRowByMatrix(row, m2))
 
         return result
 
     @staticmethod
-    def concatenateMatrices(*matrices):
+    def concatenateMatrices(*matrices: Matrix) -> Matrix:
         """\
         Multiply the given matrices together.
         """
@@ -49,7 +52,7 @@ class Transform(object):
         return concatenation
 
     @staticmethod
-    def sin(degrees):
+    def sin(degrees: float) -> float:
         """\
         Return the sin of the angle.
         """
@@ -58,7 +61,7 @@ class Transform(object):
         return round(math.sin(math.radians(degrees)), 15)
 
     @staticmethod
-    def cos(degrees):
+    def cos(degrees: float) -> float:
         """\
         Return the cos of the angle.
         """
@@ -66,14 +69,14 @@ class Transform(object):
         # are actually around 1e-16
         return round(math.cos(math.radians(degrees)), 15)
 
-    def __init__(self, *matrices):
+    def __init__(self, *matrices: Matrix):
         """\
         Construct a Transform by concateniing the given matrices.
         """
         self._transform = Transform.concatenateMatrices(*matrices)
 
     @staticmethod
-    def _matrix(a=1.0, b=0.0, c=0.0, d=1.0, m=0.0, n=0.0, p=0.0, q=0.0, s=1.0):
+    def _matrix(a: float = 1.0, b: float = 0.0, c: float = 0.0, d: float = 1.0, m: float = 0.0, n: float = 0.0, p: float = 0.0, q: float = 0.0, s: float = 1.0) -> Matrix:
         """\
         Construct a 3x3 matrix from the given values.
         """
@@ -90,14 +93,14 @@ class Transform(object):
         return Transform._matrix()
 
     @staticmethod
-    def _scaleMatrix(sx=1, sy=1):
+    def _scaleMatrix(sx: float = 1, sy: float = 1):
         """\
         Construct a matrix that scales in the x, y directions by the given factor.
         """
         return Transform._matrix(a=sx, d=sy)
 
     @staticmethod
-    def _translateMatrix(fromPoint, toPoint):
+    def _translateMatrix(fromPoint: Point, toPoint: Point):
         """\
         Construct a matrix that translates from fromPoint to toPoint.
         """
@@ -109,14 +112,14 @@ class Transform(object):
         return Transform._matrix(m=tx, n=ty)
 
     @staticmethod
-    def _shearMatrix(sx=0, sy=0):
+    def _shearMatrix(sx: float = 0, sy: float = 0):
         """\
         Construct a matrix that shears in the x, y directions by the given amounts
         """
         return Transform._matrix(b=sy, c=sx)
 
     @staticmethod
-    def _mirrorMatrix(xAxis=False, yAxis=False):
+    def _mirrorMatrix(xAxis: bool= False, yAxis: bool = False):
         """\
         Construct a matrix that mirrors around the x and or y axes.
         """
@@ -125,7 +128,7 @@ class Transform(object):
         return Transform._matrix(a=a, d=d)
 
     @staticmethod
-    def _rotationMatrix(degrees, ccw=True):
+    def _rotationMatrix(degrees: float, ccw: bool = True):
         """\
         Construct a matrix that rotates by the specified number of degrees
         in a clockwise or counter-clockwise direction.
@@ -136,21 +139,21 @@ class Transform(object):
         return Transform._matrix(a=ct, b=st, c=-st, d=ct) if ccw else Transform._matrix(a=ct, b=-st, c=st, d=ct)
 
     @staticmethod
-    def _perspectiveMatrix(p, q, s=1):
+    def _perspectiveMatrix(p: float, q: float, s: float = 1):
         """\
         Construct a matrix that does a perspective transformation.
         """
         return Transform._matrix(p=p, q=q, s=s)
 
     @property
-    def transform(self):
+    def transform(self) -> Matrix:
         """\
         Return the transform's matrix.
         """
         return self._transform
 
     @classmethod
-    def translate(cls, fromPoint, toPoint):
+    def translate(cls, fromPoint: tuple[int, int], toPoint: tuple[int, int]):
         """\
         Construct a Transform object that translates from fromPoint to toPoint.
         """
@@ -158,7 +161,7 @@ class Transform(object):
         return Transform(m)
 
     @classmethod
-    def scale(cls,sx=1, sy=1):
+    def scale(cls, sx: float = 1, sy: float = 1):
         """\
         Construct a Transform object that scales in the x, y directions by the given factor.
         """
@@ -166,7 +169,7 @@ class Transform(object):
         return Transform(m)
 
     @classmethod
-    def shear(cls, sx=0, sy=0):
+    def shear(cls, sx: float = 0, sy: float = 0):
         """\
         Construct a Transform object that shears in the x, y directions by the given amounts
         """
@@ -174,7 +177,7 @@ class Transform(object):
         return Transform(m)
 
     @classmethod
-    def mirror(cls, xAxis=False, yAxis=False):
+    def mirror(cls, xAxis: bool = False, yAxis: bool = False):
         """\
         Construct a Transform object that mirrors around the x and or y axes.
         """
@@ -182,7 +185,7 @@ class Transform(object):
         return Transform(m)
 
     @classmethod
-    def rotation(cls, degrees=90, ccw=True):
+    def rotation(cls, degrees: float = 90, ccw: bool = True):
         """\
         Construct a Transform object that rotates by the specified number of degrees
         in a clockwise or counter-clockwise direction.
@@ -191,7 +194,7 @@ class Transform(object):
         return Transform(m)
 
     @classmethod
-    def perspective(cls, p=0, q=0, s=1):
+    def perspective(cls, p: float = 0, q: float = 0, s: float = 1):
         """\
         Construct a Transform object that does a perspective transformation.
         """
@@ -199,19 +202,19 @@ class Transform(object):
         return Transform(m)
 
     @classmethod
-    def moveAndRotate(cls, fromPoint, toPoint, degrees):
+    def moveAndRotate(cls, fromPoint: Point, toPoint: Point, degrees: float):
         m1 = Transform._translateMatrix(fromPoint, toPoint)
         m2 = Transform._rotationMatrix(degrees)
         return Transform(m1, m2)
 
     @classmethod
-    def rotateAndMove(cls, fromPoint, toPoint, degrees):
+    def rotateAndMove(cls, fromPoint: Point, toPoint: Point, degrees: float):
         m1 = Transform._rotationMatrix(degrees)
         m2 = Transform._translateMatrix(fromPoint, toPoint)
         return Transform(m1, m2)
 
     @classmethod
-    def rotationAbout(cls, about, degrees=90, ccw=True):
+    def rotationAbout(cls, about: Point, degrees: float = 90, ccw: bool = True):
         """\
         Construct a Transform object that rotates around the point about by the specified number of degrees
         in a clockwise or counter-clockwise direction.
@@ -229,7 +232,7 @@ class Transform(object):
         return Transform(m1, m2, m3)
 
     @classmethod
-    def mirrorAround(cls, centerPoint, xAxis=False, yAxis=False):
+    def mirrorAround(cls, centerPoint: Point, xAxis: bool = False, yAxis: bool = False):
         """\
         Construct a Transform object that mirrors around the given center point
         in the x and or y directions.
@@ -251,7 +254,7 @@ class Transform(object):
         return Transform(m1, m2, m3)
 
     @classmethod
-    def perspectiveFrom(cls, centerPoint, p=0, q=0):
+    def perspectiveFrom(cls, centerPoint: Point, p: float = 0, q: float = 0):
         """\
         Construct a Transform object that does a perspective transformation
         around the given center point.
@@ -269,18 +272,19 @@ class Transform(object):
 
         return Transform(m1, m2, m3)
 
-    def applyToPoint(self, point):
+    def applyToPoint(self, point: Point):
         """\
         Apply the transformation to the given point.
         """
 
-        complexPoint = isinstance(point, complex)
+        # complexPoint = isinstance(point, complex)
 
-        if complexPoint:
-            px = point.real
-            py = point.imag
-        else:
-            px, py = point
+        # if complexPoint:
+        #     px = point.real
+        #     py = point.imag
+        # else:
+        #     px, py = point
+        px, py = point
         rp = Transform.multiplyRowByMatrix([px, py, 1], self.transform)
 
         # in the general case, rp[2] may not be 1, so
@@ -288,35 +292,36 @@ class Transform(object):
         rx = rp[0]/rp[2]
         ry = rp[1]/rp[2]
 
-        return complex(rx, ry) if complexPoint else (rx, ry)
+        # return complex(rx, ry) if complexPoint else (rx, ry)
+        return rx, ry
 
-    def applyToSegment(self, segment):
+    def applyToSegment(self, segment: Segment) -> Segment:
         """\
         Apply the transform to all points in the given segment.
         """
-        transformed = []
+        transformed: list[Point] = []
         for point in segment:
             transformed.append(self.applyToPoint(point))
 
         return transformed
 
 
-    def applyToContour(self, contour):
+    def applyToContour(self, contour: Contour) -> Contour:
         """\
         Apply the transform to all segments in the given contour.
         """
-        transformed = []
+        transformed: Contour = []
         for segment in contour:
             transformed.append(self.applyToSegment(segment))
 
         return transformed
 
 
-    def applyToContours(self, contours):
+    def applyToContours(self, contours: list[Contour]) -> list[Contour]:
         """\
         Apply the transform to each contour in contours.
         """
-        transformed = []
+        transformed: list[Contour] = []
         for contour in contours:
             transformed.append(self.applyToContour(contour))
 

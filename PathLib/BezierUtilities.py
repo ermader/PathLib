@@ -9,8 +9,12 @@ from https://github.com/Pomax/BezierInfo-2
 @author Eric Mader
 """
 
+import typing
+
 import math
 from decimal import Decimal
+
+from .PathTypes import Point, Segment
 
 # Legendre-Gauss abscissae with n=24 (x_i values, defined at i=n as the roots of the nth order Legendre polynomial Pn(x))
 tValues = [
@@ -77,14 +81,14 @@ tau = math.tau
 quart = pi / 4
 
 
-def approximately(a, b, precision=epsilon):
+def approximately(a: float, b: float, precision: float = epsilon):
     """Return True if a is approximately equal to b (within the given precision)"""
     return abs(a - b) <= precision
 
-def between(v, m, M):
+def between(v: float, m: float, M: float) -> bool:
     return m <= v <= M or (approximately(v, m) or approximately(v, M))
 
-def sqrt(x):
+def sqrt(x: float) -> float:
     try:
         r = math.sqrt(x)
     except:
@@ -95,11 +99,11 @@ def sqrt(x):
 
     return r
 
-def crt(v):
+def crt(v: float) -> float:
     """Return the cube root of v"""
     return -math.pow(-v, 1 / 3) if v < 0 else math.pow(v, 1 / 3)
 
-def removeDuplicates(l):
+def removeDuplicates(l: list[typing.Any]) -> list[typing.Any]:
     """Return a list that is l with the duplicate entries removed."""
 
     #The JavaScript idiom for this is:
@@ -110,7 +114,7 @@ def removeDuplicates(l):
     # This can't be done like this in Python because the filter callback
     # only takes one argument. So, we have to do it by hand.
 
-    result = []
+    result: list[typing.Any] = []
     for i in range(len(l)):
         v = l[i]
         if l.index(v) == i:
@@ -118,7 +122,7 @@ def removeDuplicates(l):
 
     return result
 
-def lli8(x1, y1, x2, y2, x3, y3, x4, y4):
+def lli8(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float) -> typing.Optional[Point]:
     nx = (x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)
     ny = (x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)
     d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
@@ -129,7 +133,7 @@ def lli8(x1, y1, x2, y2, x3, y3, x4, y4):
     return (nx / d, ny / d)
 
 
-def lli4(p1, p2, p3, p4):
+def lli4(p1: Point, p2: Point, p3: Point, p4: Point) -> typing.Optional[Point]:
     x1, y1 = p1
     x2, y2 = p2
     x3, y3 = p3
@@ -137,11 +141,11 @@ def lli4(p1, p2, p3, p4):
     return lli8(x1, y1, x2, y2, x3, y3, x4, y4)
 
 
-def lli(l1, l2):
+def lli(l1: Segment, l2: Segment) -> typing.Optional[Point]:
     return lli4(l1[0], l1[1], l2[0], l2[1])
 
 
-def droots(p):
+def droots(p: list[float]) -> typing.Sequence[float]:
     # quadratic roots are easy
     if len(p) == 3:
         a = p[0]
@@ -172,19 +176,19 @@ def droots(p):
     return []
 
 
-def lerp(r, v1, v2):
+def lerp(r: float, v1: Point, v2: Point) -> Point:
     """"Linear intrpolation between v1, v2"""
     v1x, v1y = v1
     v2x, v2y = v2
     return (v1x + r * (v2x - v1x), v1y + r * (v2y - v1y))
 
-def quadraticRatio(t):
+def quadraticRatio(t: float) -> float:
     t2 = 2 * t
     top = t2 * t - t2
     bottom = top + 1
     return abs(top / bottom)
 
-def cubicRatio(t):
+def cubicRatio(t: float) -> float:
     mt = (1 - t)
     t3 = t * t * t
     mt3 = mt * mt * mt
@@ -192,7 +196,7 @@ def cubicRatio(t):
     top = bottom - 1
     return abs(top / bottom)
 
-def map(v, ds, de, ts, te):
+def map(v: float, ds: float, de: float, ts: float, te: float) -> float:
     """\
     Map the value v, in range [ds, de] to
     the corresponding value in range [ts, te]
@@ -204,7 +208,7 @@ def map(v, ds, de, ts, te):
 
     return ts + d2 * r
 
-def angle(o, v1, v2):
+def angle(o: Point, v1: Point, v2: Point) -> float:
     ox, oy = o
     v1x, v1y = v1
     v2x, v2y = v2
@@ -217,30 +221,30 @@ def angle(o, v1, v2):
 
     return math.atan2(cross, dot)
 
-def pairiteration(c1, c2, intersectionThreshold=0.5):
-    c1b = c1.boundsRectangle
-    c2b = c2.boundsRectangle
-    r = 100000
+# def pairiteration(c1, c2, intersectionThreshold: float = 0.5):
+#     c1b = c1.boundsRectangle
+#     c2b = c2.boundsRectangle
+#     r = 100000
 
-    if c1b.height + c1b.width < intersectionThreshold and c2b.height + c2b.width < intersectionThreshold:
-        return [(((r * (c1._t1 + c1._t2)) / 2) / r, ((r * (c2._t1 + c2._t2)) / 2) / r)]
+#     if c1b.height + c1b.width < intersectionThreshold and c2b.height + c2b.width < intersectionThreshold:
+#         return [(((r * (c1._t1 + c1._t2)) / 2) / r, ((r * (c2._t1 + c2._t2)) / 2) / r)]
 
-    cc1left, cc1right, _ = c1.split(0.5)
-    cc2left, cc2right, _ = c2.split(0.5)
-    pairs = [(cc1left, cc2left), (cc1left, cc2right), (cc1right, cc2right), (cc1right, cc2left)]
-    pairs = list(filter(lambda pair: pair[0].overlaps(pair[1]), pairs))
+#     cc1left, cc1right, _ = c1.split(0.5)
+#     cc2left, cc2right, _ = c2.split(0.5)
+#     pairs = [(cc1left, cc2left), (cc1left, cc2right), (cc1right, cc2right), (cc1right, cc2left)]
+#     pairs = list(filter(lambda pair: pair[0].overlaps(pair[1]), pairs))
 
-    results = []
-    if len(pairs) == 0: return results
+#     results = []
+#     if len(pairs) == 0: return results
 
-    for pair in pairs:
-        left, right = pair
-        results.extend(pairiteration(left, right, intersectionThreshold))
+#     for pair in pairs:
+#         left, right = pair
+#         results.extend(pairiteration(left, right, intersectionThreshold))
 
-    return removeDuplicates(results)
+#     return removeDuplicates(results)
 
-def test():
-    print("No tests...")
+# def test():
+#     print("No tests...")
 
-if __name__ == "__main__":
-    test()
+# if __name__ == "__main__":
+#     test()

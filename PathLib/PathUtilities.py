@@ -6,7 +6,11 @@ Created on July 7, 2020
 @author Eric Mader
 """
 
+from __future__ import annotations
+import typing
+
 import math
+from .PathTypes import Point, Segment, Contour
 from .Transform import Transform
 
 from .BezierUtilities import lli
@@ -21,7 +25,7 @@ class BoundsRectangle(object):
     relationIntersects = 2
     relationSeparate = 3
 
-    def __init__(self, *points):
+    def __init__(self, *points: Point):
         """\
         Initialize a bounds rectangle that encloses the given
         list of points.
@@ -44,7 +48,7 @@ class BoundsRectangle(object):
         self.bottom = bottom
 
     @staticmethod
-    def fromContour(contour):
+    def fromContour(contour: Contour):
         """\
         Return a BoundsRectangle that encloses the points in contour.
         """
@@ -55,7 +59,7 @@ class BoundsRectangle(object):
         return bounds
 
     @staticmethod
-    def fromCoutours(contours):
+    def fromCoutours(contours: typing.Sequence[Contour]):
         """\
         Return a BoundsRectangle that encloses the points in contours.
         """
@@ -83,7 +87,7 @@ class BoundsRectangle(object):
         return self.top - self.bottom
 
     @property
-    def area(self):
+    def area(self) -> float:
         """\
         The area of the rectangle.
         """
@@ -97,7 +101,7 @@ class BoundsRectangle(object):
         return [(self.left, self.bottom), (self.right, self.top)]
 
     @property
-    def contour(self):
+    def contour(self) -> Contour:
         p0 = (self.left, self.bottom)
         p1 = (self.left, self.top)
         p2 = (self.right, self.top)
@@ -105,32 +109,32 @@ class BoundsRectangle(object):
         return [[p0, p1], [p1, p2], [p2, p3], [p3, p0]]
 
     @property
-    def centerPoint(self):
+    def centerPoint(self) -> Point:
         """\
         The center point of the rectangle.
         """
         return midpoint(self.diagonal)
 
     @property
-    def points(self):
+    def points(self) -> tuple[float, ...]:
         """\
         A list of the min, max x, y coordinates of the rectangle.
         """
         return (self.left, self.bottom, self.right, self.top)
 
-    def yFromBottom(self, percent):
+    def yFromBottom(self, percent: float) -> float:
         """\
         Return the y coordinate value a percentage of the way from the bottom edge of the rectangle.
         """
         return self.bottom + self.height * percent
 
-    def xFromLeft(self, percent):
+    def xFromLeft(self, percent: float) -> float:
         """\
         Return the x coordinate value a percentage of the way from the left edge of the rectangle.
         """
         return self.left + self.width * percent
 
-    def enclosesPoint(self, point):
+    def enclosesPoint(self, point: Point) -> bool:
         """\
         Test if the given point is within the rectangle.
         """
@@ -138,26 +142,26 @@ class BoundsRectangle(object):
 
         return self.left <= px <= self.right and self.bottom <= py <= self.top
 
-    def encloses(self, other):
+    def encloses(self, other: BoundsRectangle):
         """\
         Test if this rectangle encloses the given rectangle.
         """
         otherDiagonal = other.diagonal
         return self.enclosesPoint(otherDiagonal[0]) and self.enclosesPoint(otherDiagonal[1])
 
-    def crossesX(self, x):
+    def crossesX(self, x: float) -> bool:
         """\
         Test if the given x coordinate is within the rectangle.
         """
         return self.left <= x <= self.right
 
-    def crossesY(self, y):
+    def crossesY(self, y: float) -> bool:
         """\
         Test if the given y coordinate is within the rectangle.
         """
         return self.bottom <= y <= self.top
 
-    def union(self, other):
+    def union(self, other: BoundsRectangle) -> BoundsRectangle:
         """\
         Return a rectangle that is the union of this rectangle and other.
         """
@@ -168,7 +172,7 @@ class BoundsRectangle(object):
 
         return BoundsRectangle((newLeft, newBottom), (newRight, newTop))
 
-    def intersection(self, other):
+    def intersection(self, other: BoundsRectangle) -> typing.Optional[BoundsRectangle]:
         """\
         Return a rectangle that is the intersection of this rectangle and other.
         """
@@ -180,7 +184,7 @@ class BoundsRectangle(object):
         if newRight < newLeft or newTop < newBottom: return None  # maybe want <=, >=?
         return BoundsRectangle((newLeft, newBottom), (newRight, newTop))
 
-    def relationTo(self, other):
+    def relationTo(self, other: BoundsRectangle) -> int:
         if self.encloses(other):
             return self.relationEncloses
         elif other.encloses(self):
@@ -190,18 +194,18 @@ class BoundsRectangle(object):
         else:
             return self.relationSeparate
 
-def pointXY(point):
+def pointXY(point: Point):
     if isinstance(point, complex):
         return point.real, point.imag
     return point
 
-def minMax(a, b):
+def minMax(a: typing.Any, b: typing.Any) -> tuple[typing.Any, typing.Any]:
     """\
     Return a tuple with the min value first, then the max value.
     """
     return (a, b) if a <= b else (b, a)
 
-def endPoints(segment):
+def endPoints(segment: Segment) -> tuple[float, float, float, float]:
     """\
     Return the x, y coordinates of the start and end of the segment.
     """
@@ -210,7 +214,7 @@ def endPoints(segment):
 
     return (p0x, p0y, p1x, p1y)
 
-def getDeltas(segment):
+def getDeltas(segment: Segment) -> tuple[float, float]:
     """\
     Return the x, y span of the segment.
     """
@@ -218,31 +222,31 @@ def getDeltas(segment):
 
     return (p1x - p0x, p1y - p0y)
 
-def isVerticalLine(segment):
+def isVerticalLine(segment: Segment) -> bool:
     """\
     Test if the segment is a vertical line.
     """
     dx, _ = getDeltas(segment)
     return len(segment) == 2 and dx == 0
 
-def isHorizontalLine(segment):
+def isHorizontalLine(segment: Segment) -> bool:
     """\
     Test if the segment is a horizontal line.
     """
     _, dy = getDeltas(segment)
     return len(segment) == 2 and dy == 0
 
-def isDiagonalLine(segment):
+def isDiagonalLine(segment: Segment) -> bool:
     dx, dy = getDeltas(segment)
     return len(segment) == 2 and dx !=0 and dy != 0
 
-def length(segment):
+def length(segment: Segment) -> float:
     """\
     Return the length of the segment. Only really makes sense for a line...
     """
     return math.hypot(*getDeltas(segment))
 
-def slope(segment):
+def slope(segment: Segment) -> float:
     """\
     Return the slope of the segment. rise / run. Returns
     math.inf if the line is vertical.
@@ -252,22 +256,22 @@ def slope(segment):
     if dx == 0: return math.inf
     return dy / dx
 
-def slopeAngle(segment):
+def slopeAngle(segment: Segment) -> float:
     """\
     Return the angle of the segment from vertical, in degrees.
     """
     dx, dy = getDeltas(segment)
     return math.degrees(math.atan2(abs(dx), abs(dy)))
 
-def lineSlopeAngle(line):
-    delta = line.end - line.start
-    return math.degrees(math.atan2(abs(delta.real), abs(delta.imag)))
+# def lineSlopeAngle(line):
+#     delta = line.end - line.start
+#     return math.degrees(math.atan2(abs(delta.real), abs(delta.imag)))
 
-def rawSlopeAngle(segment):
+def rawSlopeAngle(segment: Segment) -> float:
     dx, dy = getDeltas(segment)
     return math.degrees(math.atan2(dy, dx))
 
-def midpoint(line):
+def midpoint(line: Segment) -> Point:
     """\
     Return the midpoint of the line.
     """
@@ -275,11 +279,13 @@ def midpoint(line):
 
     return ((p0x + p1x) / 2, (p0y + p1y) / 2)
 
-def intersectionPoint(l1, l2):
+def intersectionPoint(l1: typing.Sequence[Point], l2: typing.Sequence[Point]) -> typing.Optional[Point]:
     """\
     Find the intersection point of the two lines.
     """
     intersection = lli(l1, l2)
+
+    if intersection is None: return None
 
     b1 = BoundsRectangle(*l1)
     b2 = BoundsRectangle(*l2)
@@ -290,14 +296,14 @@ def intersectionPoint(l1, l2):
     return intersection if b1.enclosesPoint(intersection) and b2.enclosesPoint(intersection) else None
 
 # The result of this function cannot be used to create an SVG path...
-def flatten(contours):
+def flatten(contours: list[Contour]) -> Contour:
     """\
     Return a single contour that contains all the points in the given contours.
     """
     return [segment for contour in contours for segment in contour]
 
 # There must be a better way to do this...
-def pointOnLine(point, line):
+def pointOnLine(point: Point, line: typing.Sequence[Point]):
     """\
     Test if a given point is on the given line.
     """
@@ -309,7 +315,7 @@ def pointOnLine(point, line):
     return bounds.enclosesPoint(point) and slope(line) == slope([line[0], point])
 
 
-def rotatePointAbout(point, about, degrees=90, ccw=True):
+def rotatePointAbout(point: Point, about: Point, degrees: float = 90, ccw: bool = True):
     """\
     Rotate the given point the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
@@ -318,7 +324,7 @@ def rotatePointAbout(point, about, degrees=90, ccw=True):
 
     return rt.applyToPoint(point)
 
-def rotateSegmentAbout(segment, about, degrees=90, ccw=True):
+def rotateSegmentAbout(segment: Segment, about: Point, degrees: float = 90, ccw: bool = True):
     """\
     Rotate the given segment the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
@@ -327,7 +333,7 @@ def rotateSegmentAbout(segment, about, degrees=90, ccw=True):
 
     return rt.applyToSegment(segment)
 
-def rotateContourAbout(contour, about, degrees=90, ccw=True):
+def rotateContourAbout(contour: Contour, about: Point, degrees: float = 90, ccw: bool = True):
     """\
     Rotate the given contour the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
@@ -336,7 +342,7 @@ def rotateContourAbout(contour, about, degrees=90, ccw=True):
 
     return rt.applyToContour(contour)
 
-def rotateContoursAbout(contours, about, degrees=90, ccw=True):
+def rotateContoursAbout(contours: list[Contour], about: Point, degrees: float = 90, ccw: bool = True):
     """\
     Rotate the given contours the given number of degrees about the point about
     in a clockwise or counter-clockwise direction.
@@ -345,7 +351,7 @@ def rotateContoursAbout(contours, about, degrees=90, ccw=True):
 
     return rt.applyToContours(contours)
 
-def toMicros(funits, unitsPerEM):
+def toMicros(funits: float, unitsPerEM: int):
     """\
     Convert funits into micros.
     """

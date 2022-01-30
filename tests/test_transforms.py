@@ -5,7 +5,10 @@ Created on August 6, 2021
 
 @author Eric Mader
 """
-from PathLib.Transform import Transform
+from PathLib.Transform import Transform  #, Matrix
+
+Row = list[float]
+Matrix = list[Row]
 
 def test_transform():
     #
@@ -14,9 +17,9 @@ def test_transform():
     #
     # Rotate 90 degrees ccw about (4, 3)
     #
-    m1 = [[1, 0, 0], [0, 1, 0], [-4, -3, 1]]  # move (4, 3) to origin
-    m2 = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]   # rotate 90 degrees ccw
-    m3 = [[1, 0, 0], [0, 1, 0], [4, 3, 1]]    # move origin to (4, 3)
+    m1: Matrix = [[1, 0, 0], [0, 1, 0], [-4, -3, 1]]  # move (4, 3) to origin
+    m2: Matrix = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]   # rotate 90 degrees ccw
+    m3: Matrix = [[1, 0, 0], [0, 1, 0], [4, 3, 1]]    # move origin to (4, 3)
 
     origin = (0, 0)
     about = (4, 3)

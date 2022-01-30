@@ -6,8 +6,11 @@ Created on January 29, 2022
 @author Eric Mader
 """
 
-from PathLib.Transform import Matrix
+# from PathLib.Transform import Matrix
 from PathLib.CurveFitting import multiply, transpose
+
+Row = list[float]
+Matrix = list[Row]
 
 def test_multiply():
     m: Matrix = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]]

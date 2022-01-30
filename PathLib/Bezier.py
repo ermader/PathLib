@@ -9,9 +9,14 @@ from https://github.com/Pomax/BezierInfo-2
 @author Eric Mader
 """
 
+from __future__ import annotations
+import typing
+
 import math
 import types
 from decimal import Decimal, getcontext
+
+from PathLib.PathTypes import Contour, Segment, Point
 
 from . import BezierUtilities as butils
 from . import PathUtilities
@@ -19,6 +24,10 @@ from .Transform import Transform
 
 MAX_SAFE_INTEGER = +9007199254740991  # Number.MAX_SAFE_INTEGER
 MIN_SAFE_INTEGER = -9007199254740991  # Number.MIN_SAFE_INTEGER
+
+BBox = dict[int, tuple[float, float]]
+Extrema = dict[int, list[float]]
+
 
 class Bezier(object):
     dir_mixed = -1
@@ -29,22 +38,22 @@ class Bezier(object):
     __slots__ = "_controlPoints", "_t1", "_t2", "_dcPoints", "_extrema", "_length", "_bbox", "_boundsRectangle", \
                 "_lut", "_direction", "_linear", "_clockwise", "_start", "_end"
 
-    def __init__(self, controlPoints):
+    def __init__(self, controlPoints: typing.Sequence[Point]):
         self._controlPoints = controlPoints
         self._t1 = 0
         self._t2 = 1
-        self._dcPoints = None
-        self._extrema = None
+        self._dcPoints: typing.Optional[list[list[Point]]] = None
+        self._extrema: typing.Optional[Extrema] = None
         self._length = None
-        self._bbox = None
+        self._bbox: typing.Optional[BBox] = None
         self._boundsRectangle = None
-        self._lut = []
+        self._lut: list[Point] = []
 
         self._direction = self._computeDirection()
 
         # a bit of a hack to deal with the fact that control points
         # are sometimes Decimal values...
-        def fp(p): return (float(p[0]), float(p[1]))
+        def fp(p: Point): return (float(p[0]), float(p[1]))
 
         cp = [fp(p) for p in self.controlPoints]
         aligned = self._align(cp, [cp[0], cp[-1]])
@@ -53,9 +62,9 @@ class Bezier(object):
         angle = butils.angle(cp[0], cp[-1], cp[1])
         self._clockwise = angle > 0
 
-    def _computeDirection(self):
-        p0x, p0y = self._controlPoints[0]
-        p1x, p1y = self._controlPoints[1]
+    def _computeDirection(self) -> int:
+        _p0x, p0y = self._controlPoints[0]
+        _p1x, p1y = self._controlPoints[1]
 
         if self.order == 1:
             if p0y == p1y:
@@ -66,7 +75,7 @@ class Bezier(object):
 
             return Bezier.dir_down
 
-        p2x, p2y = self._controlPoints[2]
+        _p2x, p2y = self._controlPoints[2]
         if self.order == 2:
             if p0y <= p1y <= p2y:
                 return Bezier.dir_up
@@ -76,7 +85,7 @@ class Bezier(object):
             # we assume that a quadratic bezier won't be flat...
             return Bezier.dir_mixed
 
-        p3x, p3y = self._controlPoints[3]
+        _p3x, p3y = self._controlPoints[3]
         if self.order == 3:
             if p0y <= p1y <= p2y <= p3y:
                 return Bezier.dir_up
@@ -89,7 +98,7 @@ class Bezier(object):
         # For now, just say higher-order curves are mixed...
         return Bezier.dir_mixed
 
-    def _compute(self, t):
+    def _compute(self, t: float):
         # shortcuts...
         if t == 0: return self._controlPoints[0]
 
@@ -112,13 +121,14 @@ class Bezier(object):
             mt2 = mt * mt
             t2 = t * t
 
+            
             if self.order == 2:
                 p = [p[0], p[1], p[2], (0, 0)]
                 a = mt2
                 b = mt * t * 2
                 c = t2
                 d = 0
-            elif self.order == 3:
+            else:  # self.order == 3:
                 a = mt2 * mt
                 b = mt2 * t * 3
                 c = mt * t2 * 3
@@ -136,9 +146,9 @@ class Bezier(object):
             #   JavaScript code does this:
             #     const dCpts = JSON.parse(JSON.stringify(points));
             #   This is a copy operation...
-            dcPoints = p
+            dcPoints: list[Point] = [pt for pt in p]
             while len(dcPoints) > 1:
-                newPoints = []
+                newPoints: list[Point] = []
                 for i in range(len(dcPoints) - 1):
                     x0, y0 = dcPoints[i]
                     x1, y1 = dcPoints[i + 1]
@@ -148,7 +158,20 @@ class Bezier(object):
                 dcPoints = newPoints
             return dcPoints[0]
 
-    def _derivative(self, t):
+    # DecimalOrFloat = typing.TypeVar("DecimalOrFloat", float, Decimal)
+
+    @typing.overload
+    def _derivative(self, t: float) -> tuple[float, float]: ...
+
+    @typing.overload
+    def _derivative(self, t: Decimal) -> tuple[Decimal, Decimal]: ...
+
+    #
+    # We really want to use DecimalOrFloat instead of Any, but
+    # type checking thinks all values can always be either, even though
+    # to code flow guarantees that they're all the same type.
+    #
+    def _derivative(self, t: typing.Any) -> tuple[typing.Any, typing.Any]:
         p = self.dcPoints[0]
         mt = 1 - t
 
@@ -157,7 +180,7 @@ class Bezier(object):
             a = mt
             b = t
             c = 0
-        elif self.order == 3:
+        else:  # self.order == 3:
             a = mt * mt
             b = mt * t * 2
             c = t * t
@@ -167,7 +190,7 @@ class Bezier(object):
         p2x, p2y = p[2]
 
         # if t is Decimal, convert the x, y coordinates to Decimal
-        if type(t) == type(Decimal(0)):
+        if isinstance(t, Decimal):
             p0x = Decimal(p0x)
             p0y = Decimal(p0y)
             p1x = Decimal(p1x)
@@ -179,17 +202,17 @@ class Bezier(object):
         ry = a * p0y + b * p1y + c * p2y
         return (rx, ry)
 
-    def _tangent(self, t):
+    def _tangent(self, t: float) -> Point:
         d = self._derivative(t)
         q = math.hypot(d[0], d[1])
         return (d[0] / q, d[1] / q)
 
-    def _normal(self, t):
+    def _normal(self, t: float) -> Point:
         d = self._derivative(t)
         q = math.hypot(d[0], d[1])
         return (-d[1] / q, d[0] / q)
 
-    def _getminmax(self, d, list):
+    def _getminmax(self, d: int, list: list[float]) -> tuple[float, float]:
         # if (!list) return { min: 0, max: 0 };
         min = +9007199254740991  # Number.MAX_SAFE_INTEGER
         max = -9007199254740991  # Number.MIN_SAFE_INTEGER
@@ -205,31 +228,31 @@ class Bezier(object):
         return (min, max)
 
     @property
-    def start(self):
+    def start(self) -> Point:
         return self._controlPoints[0]
 
     @property
-    def startX(self):
+    def startX(self) -> float:
         return self.start[0]
 
     @property
-    def startY(self):
+    def startY(self) -> float:
         return self.start[1]
 
     @property
-    def end(self):
+    def end(self) -> Point:
         return self._controlPoints[-1]
 
     @property
-    def endX(self):
+    def endX(self) -> float:
         return self.end[0]
 
     @property
-    def endY(self):
+    def endY(self) -> float:
         return self.end[1]
 
     @property
-    def bbox(self):
+    def bbox(self) -> BBox:
         if not self._bbox:
             extrema = self.extrema
             result = {}
@@ -242,7 +265,7 @@ class Bezier(object):
         return self._bbox
 
     @property
-    def tightbbox(self):
+    def tightbbox(self) -> Contour:
         aligned = self.align()
         tBounds = aligned.boundsRectangle
         angle = PathUtilities.rawSlopeAngle(self.controlPoints)
@@ -251,7 +274,7 @@ class Bezier(object):
         return tbContour
 
     @property
-    def boundsRectangle(self):
+    def boundsRectangle(self) -> PathUtilities.BoundsRectangle:
         if not self._boundsRectangle:
             bbox = self.bbox
             minX, maxX = bbox[0]
@@ -266,11 +289,11 @@ class Bezier(object):
         sbounds.right += 40
         return sbounds
 
-    def get(self, t):
+    def get(self, t: float) -> Point:
         return self._compute(t)
 
     @staticmethod
-    def _align(points, segment):
+    def _align(points: typing.Sequence[Point], segment: Segment) -> Segment:
         angle = PathUtilities.rawSlopeAngle(segment)
         transform = Transform.moveAndRotate(segment[0], (0, 0), -angle)
         return transform.applyToSegment(points)
@@ -292,14 +315,14 @@ class Bezier(object):
         return self.get(0.5)
 
     @property
-    def dcPoints(self):
+    def dcPoints(self) -> list[list[Point]]:
         if not self._dcPoints:
-            dpoints = []
+            dpoints: list[list[Point]] = []
             p = self._controlPoints
             d = len(p)
 
             while d > 1:
-                dpts = []
+                dpts: list[Point] = []
                 c = d - 1
                 for j in range(c):
                     x0, y0 = p[j]
@@ -314,14 +337,14 @@ class Bezier(object):
         return self._dcPoints
 
     @property
-    def extrema(self):
+    def extrema(self) -> Extrema:
         if not self._extrema:
-            result = {}
-            roots = []
+            result: Extrema = {}
+            roots: list[float] = []
 
             for dim in range(2):
                 p = list(map(lambda p: p[dim], self.dcPoints[0]))
-                result[dim] = butils.droots(p)
+                result[dim] = list(butils.droots(p))
                 if self.order == 3:
                     p = list(map(lambda p: p[dim], self.dcPoints[1]))
                     result[dim].extend(butils.droots(p))
@@ -334,16 +357,16 @@ class Bezier(object):
 
         return self._extrema
 
-    def overlaps(self, curve):
+    def overlaps(self, curve: Bezier):
         return self.boundsRectangle.intersection(curve.boundsRectangle) is not None
 
-    def hull(self, t):
-        p = self.controlPoints
+    def hull(self, t: float) -> list[Point]:
+        p: typing.Sequence[Point] = self.controlPoints
         q = [pt for pt in p]
 
         # we lerp between all points at each iteration, until we have 1 point left.
         while len(p) > 1:
-            _p = []
+            _p: list[Point] = []
             for i in range(len(p) - 1):
                 pt = butils.lerp(t, p[i], p[i + 1])
                 q.append(pt)
@@ -353,7 +376,7 @@ class Bezier(object):
         return q
 
     # LUT == LookUp Table
-    def getLUT(self, steps=100):
+    def getLUT(self, steps: int = 100) -> list[Point]:
         if len(self._lut) == steps: return self._lut
 
         self._lut = []
@@ -365,7 +388,7 @@ class Bezier(object):
 
         return self._lut
 
-    def _arcfun(self, t):
+    def _arcfun(self, t: Decimal) -> Decimal:
         dx, dy = self._derivative(t)
 
         # getcontext().prec += 2
@@ -374,11 +397,11 @@ class Bezier(object):
         return result
 
     @classmethod
-    def pointXY(cls, point):
+    def pointXY(cls, point: Point) -> tuple[float, float]:
         return point
 
     @classmethod
-    def xyPoint(cls, x, y):
+    def xyPoint(cls, x: float, y: float) -> Point:
         return x, y
 
     @property
@@ -398,7 +421,13 @@ class Bezier(object):
 
         return self._length
 
-    def split(self, t1, t2=None):
+    @typing.overload
+    def split(self, t1: float) -> tuple[Bezier, Bezier, list[Point]]: ...
+
+    @typing.overload
+    def split(self, t1: float, t2: float) -> Bezier: ...
+
+    def split(self, t1: float, t2: typing.Optional[float] = None) -> typing.Union[Bezier, tuple[Bezier, Bezier, list[Point]]]:
         # shortcuts...
         if t1 == 0 and t2: return self.split(t2)[0]
         if t2 == 1: return self.split(t1)[1]
@@ -424,14 +453,14 @@ class Bezier(object):
         t2 = butils.map(t2, t1, 1, 0, 1)
         return right.split(t2)[0]
 
-    def roots(self, segment=None):
+    def roots(self, segment: typing.Optional[Segment] = None) -> list[float]:
 
         if segment:
             p = Bezier._align(self.controlPoints, segment)
         else:
             p = self.controlPoints
 
-        def reduce(t):
+        def reduce(t: float):
             return 0 <= t <= 1 or butils.approximately(t, 0) or butils.approximately(t, 1)
 
         order = len(p) - 1
@@ -514,13 +543,13 @@ class Bezier(object):
             v1 = butils.crt(q2 + sd)
             return list(filter(reduce, [u1 - v1 - a / 3]))
 
-    def align(self, segment=None):
+    def align(self, segment: typing.Optional[Segment] = None):
         if not segment:
             segment = self.controlPoints
 
         return Bezier(Bezier._align(self.controlPoints, segment))
 
-    def normal(self, t):
+    def normal(self, t: float) -> tuple[float, float]:
         dx, dy = self._derivative(t)
         q = butils.sqrt(dx * dx + dy * dy)
         return (-dy / q, dx / q)
@@ -537,9 +566,9 @@ class Bezier(object):
         s = n1x * n2x + n1y * n2y
         return abs(math.acos(s)) < math.pi / 3
 
-    def reduce(self):
-        pass1 = []
-        pass2 = []
+    def reduce(self) -> list[Bezier]:
+        pass1: list[Bezier] = []
+        pass2: list[Bezier] = []
 
         # first pass: split on extrema
         extrema = self.extrema[2]
@@ -585,7 +614,7 @@ class Bezier(object):
 
         return pass2
 
-    def lineIntersects(self, line):
+    def lineIntersects(self, line: tuple[Point, Point]):
         p1, p2 = line
         p1x, p1y = p1
         p2x, p2y = p2
@@ -594,13 +623,13 @@ class Bezier(object):
         MX = max(p1x, p2x)
         MY = max(p1y, p2y)
 
-        def onLine(t):
+        def onLine(t: float) -> bool:
             x, y = self.get(t)
             return butils.between(x, mx, MX) and butils.between(y, my, MY)
 
         return list(filter(onLine, self.roots(line)))
 
-    def intersectWithLine(self, line):
+    def intersectWithLine(self, line: Bezier):
         if self.order == 1:
             return butils.lli(self.controlPoints, line.controlPoints)
 
@@ -614,8 +643,31 @@ class Bezier(object):
         return None
 
     @staticmethod
-    def curveIntersects(c1, c2, intersectionThreshold=0.5):
-        pairs = []
+    def pairiteration(c1: Bezier, c2: Bezier, intersectionThreshold: float = 0.5) -> list[Point]:
+        c1b = c1.boundsRectangle
+        c2b = c2.boundsRectangle
+        r = 100000
+
+        if c1b.height + c1b.width < intersectionThreshold and c2b.height + c2b.width < intersectionThreshold:
+            return [(((r * (c1._t1 + c1._t2)) / 2) / r, ((r * (c2._t1 + c2._t2)) / 2) / r)]
+
+        cc1left, cc1right, _ = c1.split(0.5)
+        cc2left, cc2right, _ = c2.split(0.5)
+        pairs = [(cc1left, cc2left), (cc1left, cc2right), (cc1right, cc2right), (cc1right, cc2left)]
+        pairs = list(filter(lambda pair: pair[0].overlaps(pair[1]), pairs))
+
+        results: list[Point] = []
+        if len(pairs) == 0: return results
+
+        for pair in pairs:
+            left, right = pair
+            results.extend(Bezier.pairiteration(left, right, intersectionThreshold))
+
+        return butils.removeDuplicates(results)
+
+    @staticmethod
+    def curveIntersects(c1: list[Bezier], c2: list[Bezier], intersectionThreshold: float = 0.5) -> list[Point]:
+        pairs: list[tuple[Bezier, Bezier]] = []
 
         # step 1: pair off any overlapping segments
         for l in c1:
@@ -624,72 +676,73 @@ class Bezier(object):
                     pairs.append((l, r))
 
         # step 2: for each pairing, run through the convergence algorithm.
-        intersections = []
+        intersections: list[Point] = []
         for pair in pairs:
-            result = butils.pairiteration(pair[0], pair[1], intersectionThreshold)
+            result = Bezier.pairiteration(pair[0], pair[1], intersectionThreshold)
             if len(result) > 0:
                 intersections.extend(result)
 
         return intersections
 
-    def selfIntersects(self, intersectionThreshold=0.5):
+    def selfIntersects(self, intersectionThreshold: float = 0.5) -> list[Point]:
         # "simple" curves cannot intersect with their direct
         # neighbor, so for each segment X we check whether
         # it intersects [0:x-2][x+2:last].
         reduced = self.reduce()
         length = len(reduced) - 2
-        results = []
+        results: list[Point] = []
 
         for i in range(length):
-            left = reduced[i]
+            left = reduced[i:i+1]
             right = reduced[i+2:]
             result = Bezier.curveIntersects(left, right, intersectionThreshold)
             results.extend(result)
 
         return results
 
-    def intersects(self, curve, intersectionThreshold=0.5):
+    def intersects(self, curve: typing.Optional[Bezier], intersectionThreshold: float = 0.5):
         if curve is None: return self.selfIntersects(intersectionThreshold)
         # if curve is a line: self.lineIntersects(line, intersectionThreshold)
         #if curve instanceOf Bezier: curve = curve.reduce()
 
         return Bezier.curveIntersects(self.reduce(), curve.reduce(), intersectionThreshold)
 
-    def getABC(self, t):
+    def getABC(self, t: float) -> tuple[Point, Point, typing.Optional[Point], float, list[Point]]:
         hull = self.hull(t)
         points = self.controlPoints
         if self.order == 2:
-            A = points[1]
-            B = hull[5]
+            a = points[1]
+            b = hull[5]
             ratio = butils.quadraticRatio(t)
-        elif self.order == 3:
-            A = hull[5]
-            B = hull[9]
+        else:  # self.order == 3:
+            a = hull[5]
+            b = hull[9]
             ratio = butils.cubicRatio(t)
 
-        C = butils.lli4(A, B, points[0], points[-1])
+        c = butils.lli4(a, b, points[0], points[-1])
 
-        return (A, B, C, ratio, hull)
+        return (a, b, c, ratio, hull)
 
     def raiseOrder(self):
         p = self.controlPoints
         k = len(p)
         np = [p[0]]
         for i in range(k):
-            pix, piy = pi = p[i]
-            pimx, pimy = pim = p[i - 1]
+            pix, piy = p[i]
+            pimx, pimy = p[i - 1]
             x = ((k - i) / k) * pix + (i / k) * pimx
             y = ((k - i) / k) * piy + (i / k) * pimy
             np.append((x, y))
         np.append(p[-1])
         return Bezier(np)
 
-    def offset(self, t, d=None):
-        def rp(r):
-            if r._linear:
-                return r.offset(t)[0]
-            return r.scale(t)
+    @typing.overload
+    def offset(self, t: float) -> list[Bezier]: ...
 
+    @typing.overload
+    def offset(self, t: float, d: float) -> list[Point]: ...
+
+    def offset(self, t: float, d: typing.Optional[float] = None) -> typing.Union[list[Point], list[Bezier]]:
         if d:
             cx, cy = c = self.get(t)
             nx, ny = n = self.normal(t)
@@ -703,27 +756,28 @@ class Bezier(object):
             return [Bezier(coords)]
 
         reduced = self.reduce()
-        return list(map(rp, reduced))
+        return list(map(lambda r: r.offset(t)[0] if r._linear else r.scale(t), reduced))
 
-    def scale(self, d):
-        distanceFn = None
+    DistanceFunction = typing.Callable[[float], float]
+    def scale(self, d: typing.Union[float, DistanceFunction]) -> Bezier:
+        distanceFn: Bezier.DistanceFunction = d if isinstance(d, types.FunctionType) else lambda f: typing.cast(float, d)
         order = self.order
 
-        if type(d) == types.FunctionType:
-            distanceFn = d
-
-        if distanceFn and order == 2: return self.raiseOrder().scale(distanceFn)
+        if isinstance(d, types.FunctionType) and order == 2: return self.raiseOrder().scale(distanceFn)
 
         # TODO: add special handling for degenerate (=linear) curves.
         clockwise = self._clockwise
-        r1 = distanceFn(0) if distanceFn else d
-        r2 = distanceFn(1) if distanceFn else d
+        r1 = distanceFn(0)
+        r2 = distanceFn(1)
+
         v = [self.offset(0, 10), self.offset(1, 10)]
-        np = [(0, 0) for _ in range(order+1)]
-        ox, oy = o = butils.lli4(v[0][2], v[0][0], v[1][2], v[1][0])
+        np: list[Point] = [(0, 0) for _ in range(order+1)]
+        o = butils.lli4(v[0][2], v[0][0], v[1][2], v[1][0])
 
         if not o:
             raise ValueError("Cannot scale this curve. Try reducing it first.")
+        
+        ox, oy = o
 
         # move all points by distance 'd' wrt the origin 'o'
 
@@ -734,15 +788,15 @@ class Bezier(object):
             py += (r2 if t > 0 else r1) * v[t][1][1]  # v[t].n.y
             np[t * order] = (px, py)
 
-        if distanceFn is None:
+        if isinstance(d, types.FunctionType):
             # move control points to lie on the intersection of the offset
             # derivative vector, and the origin-through-control vector
             for t in range(2):
                 if order == 2 and t > 0: break
                 px, py = p = np[t * order]
-                dx, dy = d = self._derivative(t)
+                dx, dy = self._derivative(t)
                 p2 = (px + dx, py + dy)
-                np[t + 1] = butils.lli4(p, p2, o, self.controlPoints[t + 1])
+                np[t + 1] = typing.cast(Point, butils.lli4(p, p2, o, self.controlPoints[t + 1]))
 
             return Bezier(np)
 
@@ -752,7 +806,7 @@ class Bezier(object):
             if order == 2 and t > 0: break
             px, py = p = self.controlPoints[t + 1]
             ovx, ovy = (px - ox, py - oy)
-            rc = distanceFn((t + 1) / order) if distanceFn else d
+            rc = distanceFn((t + 1) / order) if distanceFn else typing.cast(float, d)
             if distanceFn and not clockwise: rc = -rc
             m = math.hypot(ovx, ovy)
             ovx /= m
@@ -762,8 +816,8 @@ class Bezier(object):
         return Bezier(np)
 
 class BContour(object):
-    def __init__(self, contour):
-        beziers = []
+    def __init__(self, contour: Contour):
+        beziers: list[Bezier] = []
         bounds = PathUtilities.BoundsRectangle()
 
         for segment in contour:
@@ -773,20 +827,20 @@ class BContour(object):
 
         self._beziers = beziers
         self._bounds = bounds
-        self._lut = []
+        self._lut: list[Point] = []
         self._start = beziers[0].start
         self._end = beziers[-1].end
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Bezier:
         return self._beziers[index]
 
-    def __setitem__(self, index, value):
+    def __setitem__(self, index: int, value: typing.Sequence[Point]):
         self._beziers[index] = Bezier(value)
         # self._length = None
         self._start = self._beziers[0].start
         self._end = self._beziers[-1].end
 
-    def __delitem__(self, index):
+    def __delitem__(self, index: int):
         del self._beziers[index]
         # self._length = None
         self._start = self._beziers[0].start
@@ -795,7 +849,7 @@ class BContour(object):
     def __iter__(self):
         return self._beziers.__iter__()
 
-    def getLUT(self, steps=100):
+    def getLUT(self, steps: int = 100):
         if len(self._lut) == steps: return self._lut
 
         self._lut = []
@@ -809,9 +863,11 @@ class BContour(object):
         return self._lut
 
     @classmethod
-    def _findClosest(cls, point, LUT):
+    def _findClosest(cls, point: Point, LUT: typing.Sequence[Point]) -> int:
         x, y = point
         closest = MAX_SAFE_INTEGER
+        i = -1
+
         for index in range(len(LUT)):
             px, py = LUT[index]
             dist = math.hypot(px - x, py - y)
@@ -822,25 +878,26 @@ class BContour(object):
         return i
 
     @classmethod
-    def _refineBinary(cls, point, curve, LUT, i):
+    def _refineBinary(cls, point: Point, curve: Bezier, lut: typing.Sequence[Point], i: int):
         closest = MAX_SAFE_INTEGER
-        steps = len(LUT)
-        TT = [t / (steps - 1) for t in range(steps)]
+        steps = len(lut)
+        tt = [t / (steps - 1) for t in range(steps)]
         px, py = point
+        q: Point = (0, 0)
 
         for _ in range(25):  # This is for safety; the loop should always break
-            steps = len(LUT)
+            steps = len(lut)
             i1 = 0 if i == 0 else i - 1
             i2 = i if i == steps - 1 else i + 1
-            t1 = TT[i1]
-            t2 = TT[i2]
-            lut = []
-            tt = []
+            t1 = tt[i1]
+            t2 = tt[i2]
+            new_lut: typing.Sequence[Point] = []
+            new_tt: list[float] = []
             step = (t2 - t1) / 5
 
             if step < 0.001: break
-            lut.append(LUT[i1])
-            tt.append(TT[i1])
+            new_lut.append(lut[i1])
+            new_tt.append(tt[i1])
             for j in range(1, 4):
                 nt = t1 + (j * step)
                 nx, ny = n = curve.get(nt)
@@ -849,18 +906,18 @@ class BContour(object):
                     closest = dist
                     q = n
                     i = j
-                lut.append(n)
-                tt.append(nt)
-            lut.append(LUT[i2])
-            tt.append(TT[i2])
+                new_lut.append(n)
+                new_tt.append(nt)
+            new_lut.append(lut[i2])
+            new_tt.append(tt[i2])
 
-            # update the LUT to be our new five point LUT, and run again.
-            LUT = lut
-            TT = tt
+            # update the lut to be our new five point LUT, and run again.
+            lut = new_lut
+            tt = new_tt
 
         return (q, closest)
 
-    def findClosestPoint(self, point, steps):
+    def findClosestPoint(self, point: Point, steps: int):
         nCurves = len(self.beziers)
         curve2 = None
         i = self._findClosest(point, self.getLUT(steps))
@@ -876,12 +933,12 @@ class BContour(object):
             if ix < nCurves - 1: curve2 = self.beziers[ix + 1]
             i %= s1
 
-        LUT = curve.getLUT(steps)
-        cip, closest = self._refineBinary(point, curve, LUT, i)
+        lut = curve.getLUT(steps)
+        cip, closest = self._refineBinary(point, curve, lut, i)
 
         if curve2:
-            LUT = curve2.getLUT(steps)
-            cip2, c2 = self._refineBinary(point, curve2, LUT, 0)
+            lut = curve2.getLUT(steps)
+            cip2, c2 = self._refineBinary(point, curve2, lut, 0)
 
             if c2 < closest:
                 closest = c2
@@ -889,20 +946,20 @@ class BContour(object):
 
         return (closest, cip)
 
-    def pointToString(self, point):
+    def pointToString(self, point: Point) -> str:
         return ",".join([str(i) for i in point])
 
-    def d(self, useSandT=False, use_closed_attrib=False, rel=False):
+    def d(self, useSandT: bool = False, use_closed_attrib: bool = False, rel: bool = False):
         """Returns a path d-string for the path object.
         For an explanation of useSandT and use_closed_attrib, see the
         compatibility notes in the README."""
 
-        commands = []
+        commands: list[str] = []
         lastCommand = ""
         pen = firstPoint = self.start
         commands.append(f"M{self.pointToString(firstPoint)}")
 
-        def getCommand(command, lastCommand):
+        def getCommand(command: str, lastCommand: str) -> tuple[str, str]:
             return " " if lastCommand == command else command, command
 
         for bezier in self.beziers:
@@ -962,19 +1019,19 @@ class BContour(object):
         return self._beziers
 
     @classmethod
-    def pointXY(cls, point):
+    def pointXY(cls, point: Point) -> tuple[float, float]:
         return Bezier.pointXY(point)
 
     @classmethod
-    def xyPoint(cls, x, y):
+    def xyPoint(cls, x: float, y: float) -> Point:
         return Bezier.xyPoint(x, y)
 
 class BOutline(object):
     __slots__ = "_bContours", "_bounds"
 
-    def __init__(self, contours):
+    def __init__(self, contours: list[Contour]):
         bounds = PathUtilities.BoundsRectangle()
-        bContours = []
+        bContours: list[BContour] = []
 
         for contour in contours:
             bc = BContour(contour)
@@ -988,21 +1045,21 @@ class BOutline(object):
         return self._bContours.__iter__()
 
     @classmethod
-    def pointXY(cls, point):
+    def pointXY(cls, point: Point) -> tuple[float, float]:
         return Bezier.pointXY(point)
 
     @classmethod
-    def xyPoint(cls, x, y):
+    def xyPoint(cls, x: float, y: float) -> Point:
         return Bezier.xyPoint(x, y)
 
     @classmethod
-    def segmentFromPoints(cls, points):
+    def segmentFromPoints(cls, points: typing.Sequence[Point]) -> Bezier:
         return Bezier(points)
 
     @classmethod
-    def unzipPoints(cls, points):
-        xs = []
-        ys = []
+    def unzipPoints(cls, points: typing.Sequence[Point]) -> tuple[list[float], list[float]]:
+        xs: list[float] = []
+        ys: list[float] = []
 
         for x, y in points:
             xs.append(x)
@@ -1011,7 +1068,7 @@ class BOutline(object):
         return xs, ys
 
     @classmethod
-    def pathFromSegments(cls, *segments):
+    def pathFromSegments(cls, *segments: Bezier):
         return BContour([s.controlPoints for s in segments])
 
     @property

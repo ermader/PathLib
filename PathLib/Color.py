@@ -16,12 +16,12 @@ class Color(FDTColor):
     """\
     A subclass of FontDocTools.Color that adds the full set of X11 and SVG 1.0 colors
     """
-    def __init__(self, red, green, blue):
+    def __init__(self, red: int, green: int, blue: int):
         FDTColor.__init__(self, red, green, blue)
 
     # X11 colors plus SVG 1.0 gray/grey variants
     # from https://www.w3.org/TR/css-color-3/#html4
-    _keywords = {
+    _keywords: dict[str, tuple[int, int, int]] = {
         'aliceblue': (240, 248, 255),
         'antiquewhite': (250, 235, 215),
         'aqua': (0, 255, 255),
@@ -172,7 +172,7 @@ class Color(FDTColor):
     }
 
     @classmethod
-    def _forKeyword(cls, color):
+    def _forKeyword(cls, color: str):
         """\
          Return a new Color object for the given color keyword.
          Return None if the given string doesn’t consist of Unicode “Letter” characters.
@@ -186,7 +186,7 @@ class Color(FDTColor):
         raise ValueError(f"Unrecognized color keyword: {color}")
 
     @classmethod
-    def fromName(cls, name):
+    def fromName(cls, name: str):
         """\
         Return a color given the name.
         """
@@ -199,19 +199,19 @@ class Color(FDTColor):
         blue = random.randint(0, 255)
         return Color(red, green, blue)
 
-    CURRENT_HUE = 0
+    _current_hue: float = 0
 
     @classmethod
-    def setCurrentHue(cls, hue=0):
-        cls.CURRENT_HUE = hue
+    def setCurrentHue(cls, hue: float = 0):
+        cls._current_hue = hue
 
     # Based on randomColor() from graphics-api.js from
     # from https://github.com/Pomax/BezierInfo-2
     # (not really random...)
     @classmethod
     def randomHSLColor(cls):
-        cls.CURRENT_HUE = (cls.CURRENT_HUE + 73) % 360
-        hue = cls.CURRENT_HUE
+        cls._current_hue = (cls._current_hue + 73) % 360
+        hue = cls._current_hue
         saturation = 50
         lightness = 50
         red, green, blue = hls_to_rgb(hue / 360, lightness / 100, saturation / 100)
