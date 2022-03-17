@@ -8,12 +8,9 @@ Created on August 6, 2021
 
 import typing
 
-# from PathLib.Transform import Matrix
+from PathLib.Transform import Matrix
 from PathLib.MatrixInversion import matrixInvert
 from PathLib.CurveFitting import multiply
-
-Row = list[float]
-Matrix = list[Row]
 
 def test_matrixInversion():
     expectedInversion: Matrix = [[7.0, -3.0, -3.0], [-1.0, 1.0, 0.0], [-1.0, 0.0, 1.0]]
