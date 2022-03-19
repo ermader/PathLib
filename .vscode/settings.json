@@ -12,6 +12,6 @@
         "tests"
     ],
     "terminal.integrated.env.osx": {
-        "PYTHONPATH": "/Users/emader/VSCode/UnicodeData:/Users/emader/VSCode/PathLib/PathLib"
+        "PYTHONPATH": "${env:HOME}/VSCode/UnicodeData:${env:HOME}/VSCode/PathLib"
     }
 }
