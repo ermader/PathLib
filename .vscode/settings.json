@@ -13,5 +13,8 @@
     ],
     "terminal.integrated.env.osx": {
         "PYTHONPATH": "${env:HOME}/VSCode/UnicodeData:${env:HOME}/VSCode/PathLib"
+    },
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "..\\UnicodeData;..\\PathLib"
     }
 }
