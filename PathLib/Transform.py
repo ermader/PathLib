@@ -237,7 +237,7 @@ class Transform(object):
         Construct a Transform object that mirrors around the given center point
         in the x and or y directions.
         """
-        tx = ty = 0
+        tx = ty = 0.0
         cx, cy = centerPoint
 
         if xAxis:
@@ -299,7 +299,7 @@ class Transform(object):
         """\
         Apply the transform to all points in the given segment.
         """
-        transformed: list[Point] = []
+        transformed: Segment = []
         for point in segment:
             transformed.append(self.applyToPoint(point))
 

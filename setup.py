@@ -5,10 +5,10 @@ with open("README.md", "r") as file:
 
 setup(
     name="PathLib",
-    version="0.1",
+    version="0.2",
     packages=find_packages(),
 
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=[
         "FontDocTools >= 1.2",
     ],
